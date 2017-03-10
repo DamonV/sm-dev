@@ -4,7 +4,7 @@ const Speech = require('@google-cloud/speech');
 var mysql      = require('mysql');
 var sm      = require('../sm');
 
-var dbInsert = function(order) {
+var dbInsert = function(record) {
   var connection = mysql.createConnection({
     host: sm.settings.host,
     port: sm.settings.port,
@@ -15,7 +15,7 @@ var dbInsert = function(order) {
 
   connection.connect();
 
-  var query = connection.query('INSERT INTO orders SET ?', order, function (error, results, fields) {
+  var query = connection.query('INSERT INTO orders SET ?', record, function (error, results, fields) {
     if (error) throw error;
     //console.log(error);
   });
@@ -60,7 +60,7 @@ var hex8to16bin = function(hexStr){
 router.post('/', function(req, res, next) {
   var date1=new Date();
 
-  if (req.body["file"]!==undefined) {
+  if (req.body["file"]!==undefined && req.body["id"]!==undefined) {
     const speechClient = Speech({
       keyFilename: sm.settings.keyFilename
     });
@@ -82,20 +82,27 @@ router.post('/', function(req, res, next) {
           console.log(`Transcription: ${transcription}`);
           console.log("2- "+(new Date()-date1)+" ms");
 
-          var order  = {key: req.body["key"], message: transcription};
-          //dbInsert(order);
-  },
-    (error ) => {
-      console.log(error);
-      console.log("2- "+(new Date()-date1)+" ms");
-    });
+          var order  = {
+            uid_device: req.body["id"],
+            message: transcription
+          };
+          if (req.body["key"]!==undefined) order.key=req.body["key"];
+          try{
+            order.confidence=results[1].results[0].alternatives[0].confidence;
+          }catch(e){};
+          dbInsert(order);
+        },
+          (error ) => {
+            console.log(error);
+            console.log("2- "+(new Date()-date1)+" ms");
+          });
 
     res.send('OK');
   }
   else {
     var err = new Error();
     err.status = 500;
-    err.message = 'Payload is required';
+    err.message = 'Request is incorrect';
     next(err);
   }
 });
@@ -103,7 +110,7 @@ router.post('/', function(req, res, next) {
 router.post('/16bit', function(req, res, next) {
   var date1=new Date();
 
-  if (req.body["file"]!==undefined) {
+  if (req.body["file"]!==undefined && req.body["id"]!==undefined) {
 
       setImmediate(() => {
 
@@ -128,8 +135,15 @@ router.post('/16bit', function(req, res, next) {
                 console.log("Transcription: "+transcription);//["transcript"]+" q="+transcription["confidence"]
                 console.log("2- "+(new Date()-date1)+" ms");
 
-                var order  = {key: req.body["key"], message: transcription};
-	              //dbInsert(order);
+                var order  = {
+                  uid_device: req.body["id"],
+                  message: transcription
+                };
+                if (req.body["key"]!==undefined) order.key=req.body["key"];
+                try{
+                  order.confidence=results[1].results[0].alternatives[0].confidence;
+                }catch(e){};
+                dbInsert(order);
               },
               (error ) => {
                 console.log(error);
@@ -141,39 +155,9 @@ router.post('/16bit', function(req, res, next) {
   else {
     var err = new Error();
     err.status = 500;
-    err.message = 'Payload is required';
+    err.message = 'Request is incorrect';
     next(err);
   }
 });
-
-
-/*router.get('/', function(req, res, next) {
-  res.send('GET OK');
-  var date1 = new Date();
-
-  const speech = Speech({
-    keyFilename: "c:\\MyProjects\\_WebstormProjects\\SmartMagnetWebService\\Smart Magnet-d795ce3f0f1f.json", //SOK Project-9fba39f7c2ec.json"
-  });
-  const fileName = 'c:\\MyProjects\\Sound2.raw';
-  const request = {
-    encoding: 'LINEAR16',
-    sampleRate: 11025,
-    languageCode: 'ru-RU'
-  };
-
-  speech.startRecognition(fileName, request)
-    .then((results) => {
-      const operation = results[0];
-      console.log("1- "+(new Date()-date1)+" ms");
-      return operation.promise();
-    })
-    .then((transcription) => {
-      console.log(`Transcription: ${transcription}`);
-
-      console.log("2- "+(new Date()-date1)+" ms");
-    });
-
-  console.log('hop-hey-la-la-ley');
-});*/
 
 module.exports = router;
