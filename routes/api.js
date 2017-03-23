@@ -3,6 +3,8 @@ var router = express.Router();
 const Speech = require('@google-cloud/speech');
 var mysql      = require('mysql');
 var sm      = require('../sm');
+var wav = require('../wavmaker');
+var fs = require('fs');
 
 var dbInsert = function(record) {
   var connection = mysql.createConnection({
@@ -10,18 +12,32 @@ var dbInsert = function(record) {
     port: sm.settings.port,
     user: sm.settings.user,
     password: sm.settings.password,
-    database: sm.settings.database,
+    database: sm.settings.database
   });
 
   connection.connect();
-
   var query = connection.query('INSERT INTO orders SET ?', record, function (error, results, fields) {
-    if (error) throw error;
-    //console.log(error);
+    if (error) console.log(error);
   });
   connection.end();
-
   return query.sql;
+}
+
+var wavCreate = function(buffer, sampleRate, bytes, filename) {
+    const path = sm.settings.localPathWav+filename;
+
+    var wm = new wav.wavMaker({sampleRate: sampleRate, channels: 1, bytes: bytes});
+    var buffer2=wm.makeWav(buffer);
+
+    fs.open(path, 'w', function(err, fd) {
+        if (err) {
+            console.log('error opening file '+filename+' : ' + err);
+        } else fs.write(fd, buffer2, 0, buffer2.length, null, function(err) {
+            if (err) console.log('error writing file '+filename+' : ' + err);
+            else fs.close(fd, function() {
+            })
+        });
+    });
 }
 
 router.post('/', function(req, res, next) {
@@ -47,9 +63,11 @@ router.post('/', function(req, res, next) {
         (results) => {
           var recPeriod=(new Date()-date1);
           const transcription = results[0];
+          const filename = 'v'+req.body["id"]+(new Date()).getTime()+'.wav';
           var order  = {
             uid_device: req.body["id"],
-            message: transcription
+            message: transcription,
+            ref_wav: sm.settings.urlPathWav+filename
           };
           if (req.body["key"]!==undefined) order.key=req.body["key"];
           try{
@@ -57,6 +75,9 @@ router.post('/', function(req, res, next) {
           }catch(e){};
           var querySql=dbInsert(order);
           console.log(curDateStr()+" | recognize "+recPeriod+" ms | overall "+(new Date()-date1)+" ms | "+querySql);
+
+          wavCreate(source.content, options.sampleRate, 2, filename);
+
         },
         (error ) => {
           console.log(error);
@@ -93,26 +114,30 @@ router.post('/16bit', function(req, res, next) {
             languageCode: 'ru-RU'
         };
 
-        speechClient.recognize(source, options)
-            .then(
-              (results) => {
-                var recPeriod=(new Date()-date1);
-                const transcription = results[0];
-                var order  = {
-                  uid_device: req.body["id"],
-                  message: transcription
-                };
-                if (req.body["key"]!==undefined) order.key=req.body["key"];
-                try{
-                  order.confidence=results[1].results[0].alternatives[0].confidence;
-                }catch(e){};
-                var querySql=dbInsert(order);
-                console.log(curDateStr()+" | recognize "+recPeriod+" ms | overall "+(new Date()-date1)+" ms | "+querySql);
-              },
-              (error ) => {
-                console.log(error);
-                //console.log("2- "+(new Date()-date1)+" ms");
-              });
+      speechClient.recognize(source, options)
+        .then(
+          (results) => {
+            var recPeriod=(new Date()-date1);
+            const transcription = results[0];
+            const filename = 'w'+req.body["id"]+(new Date()).getTime()+'.wav';
+            var order  = {
+              uid_device: req.body["id"],
+              message: transcription,
+              ref_wav: sm.settings.urlPathWav+filename
+            };
+            if (req.body["key"]!==undefined) order.key=req.body["key"];
+            try{
+              order.confidence=results[1].results[0].alternatives[0].confidence;
+            }catch(e){};
+            var querySql=dbInsert(order);
+            console.log(curDateStr()+" | recognize "+recPeriod+" ms | overall "+(new Date()-date1)+" ms | "+querySql);
+
+            wavCreate(source.content, options.sampleRate, 2, filename);
+          },
+          (error ) => {
+            console.log(error);
+            //console.log("2- "+(new Date()-date1)+" ms");
+          });
       });
       res.send('OK');
   }
@@ -165,9 +190,9 @@ var hex8to16bin = function(hexStr){
         byte += (symb - A + 10) * (j == 0 ? 16 : 1);
       }
     }
-    //byte-=128;  //проходит без нормализации и сдвига вниз
-    bytes.push(byte);
-    bytes.push(0);
+    byte-=128;
+    bytes.push(0);  //*256
+    bytes.push(byte & 0x000000ff);
   }
   return bytes;
 }
