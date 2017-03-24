@@ -110,7 +110,7 @@ router.post('/16bit', function(req, res, next) {
 
         const options = {
             encoding: 'LINEAR16',
-            sampleRate: 11025,
+            sampleRate: 8000,
             languageCode: 'ru-RU'
         };
 
