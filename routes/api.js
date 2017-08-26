@@ -81,7 +81,7 @@ router.post('/', function(req, res, next) {
           var querySql=dbInsert(order);
           console.log(curDateStr()+" | recognize "+recPeriod+" ms | overall "+(new Date()-date1)+" ms | "+querySql);
 
-          wavCreate(source.content, options.sampleRate, 2, filename);
+          wavCreate(audio.content, config.sampleRateHertz, 2, filename);
 
         },
         (error ) => {
@@ -142,7 +142,7 @@ router.post('/16bit', function(req, res, next) {
             var querySql=dbInsert(order);
             console.log(curDateStr()+" | recognize "+recPeriod+" ms | overall "+(new Date()-date1)+" ms | "+querySql);
 
-            wavCreate(source.content, options.sampleRate, 2, filename);
+            wavCreate(audio.content, config.sampleRateHertz, 2, filename);
           },
           (error ) => {
             console.log(error);
