@@ -48,17 +48,22 @@ router.post('/', function(req, res, next) {
       keyFilename: sm.settings.keyFilename
     });
 
-    const source = {
+    const audio = {
       content: Buffer.from(hex8to16bin(req.body["file"]))
     };
 
-    const options = {
-      encoding: 'LINEAR16',
-      sampleRate: 8000,
+    const config = {
+      encoding: Speech.v1.types.RecognitionConfig.AudioEncoding.LINEAR16,
+      sampleRateHertz: 8000,
       languageCode: 'ru-RU'
     };
 
-    speechClient.recognize(source, options)
+    const request = {
+      config: config,
+      audio: audio
+    };
+
+    speechClient.recognize(request)
       .then(
         (results) => {
           var recPeriod=(new Date()-date1);
@@ -104,17 +109,22 @@ router.post('/16bit', function(req, res, next) {
           keyFilename: sm.settings.keyFilename
         });
 
-        const source = {
+        const audio = {
           content: new Buffer(req.body["file"], 'hex')
         };
 
-        const options = {
-            encoding: 'LINEAR16',
-            sampleRate: 8000,
+        const config = {
+            encoding: Speech.v1.types.RecognitionConfig.AudioEncoding.LINEAR16,
+            sampleRateHertz: 8000,
             languageCode: 'ru-RU'
         };
 
-      speechClient.recognize(source, options)
+        const request = {
+            config: config,
+            audio: audio
+        };
+
+        speechClient.recognize(request)
         .then(
           (results) => {
             var recPeriod=(new Date()-date1);
