@@ -67,7 +67,7 @@ router.post('/', function(req, res, next) {
       .then(
         (results) => {
           var recPeriod=(new Date()-date1);
-          const transcription = results[0];
+          const transcription = results[0].results[0].alternatives[0].transcript;
           const filename = 'v'+req.body["id"]+(new Date()).getTime()+'.wav';
           var order  = {
             uid_device: req.body["id"],
@@ -76,7 +76,7 @@ router.post('/', function(req, res, next) {
           };
           if (req.body["key"]!==undefined) order.key=req.body["key"];
           try{
-            order.confidence=results[1].results[0].alternatives[0].confidence;
+            order.confidence=results[0].results[0].alternatives[0].confidence;
           }catch(e){};
           var querySql=dbInsert(order);
           console.log(curDateStr()+" | recognize "+recPeriod+" ms | overall "+(new Date()-date1)+" ms | "+querySql);
@@ -128,7 +128,7 @@ router.post('/16bit', function(req, res, next) {
         .then(
           (results) => {
             var recPeriod=(new Date()-date1);
-            const transcription = results[0];
+            const transcription = results[0].results[0].alternatives[0].transcript;
             const filename = 'w'+req.body["id"]+(new Date()).getTime()+'.wav';
             var order  = {
               uid_device: req.body["id"],
@@ -137,7 +137,7 @@ router.post('/16bit', function(req, res, next) {
             };
             if (req.body["key"]!==undefined) order.key=req.body["key"];
             try{
-              order.confidence=results[1].results[0].alternatives[0].confidence;
+              order.confidence=results[0].results[0].alternatives[0].confidence;
             }catch(e){};
             var querySql=dbInsert(order);
             console.log(curDateStr()+" | recognize "+recPeriod+" ms | overall "+(new Date()-date1)+" ms | "+querySql);
