@@ -67,10 +67,11 @@ router.post('/', function(req, res, next) {
       .then(
         (results) => {
           var recPeriod=(new Date()-date1);
+          var transcription;
           try{
-              const transcription = results[0].results[0].alternatives[0].transcript;
+              transcription = results[0].results[0].alternatives[0].transcript;
           }catch(e){
-              const transcription='?';
+              transcription='?';
           };
           const filename = 'v'+req.body["id"]+(new Date()).getTime()+'.wav';
           var order  = {
@@ -132,10 +133,11 @@ router.post('/16bit', function(req, res, next) {
         .then(
           (results) => {
             var recPeriod=(new Date()-date1);
+            var transcription;
             try{
-                const transcription = results[0].results[0].alternatives[0].transcript;
+                transcription = results[0].results[0].alternatives[0].transcript;
             }catch(e){
-                const transcription='?';
+                transcription='?';
             };
             const filename = 'w'+req.body["id"]+(new Date()).getTime()+'.wav';
             var order  = {
