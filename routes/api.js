@@ -43,7 +43,7 @@ var wavCreate = function(buffer, sampleRate, bytes, filename) {
 router.post('/', function(req, res, next) {
   var date1=new Date();
 
-  if (req.body["file"]!==undefined && req.body["id"]!==undefined) {
+  if (req.body["file"]!==undefined && req.body["id"]!==undefined && req.body["file"] && req.body["id"]) {
     const speechClient = Speech({
       keyFilename: sm.settings.keyFilename
     });
@@ -106,7 +106,7 @@ router.post('/', function(req, res, next) {
 router.post('/16bit', function(req, res, next) {
   var date1=new Date();
 
-  if (req.body["file"]!==undefined && req.body["id"]!==undefined) {
+  if (req.body["file"]!==undefined && req.body["id"]!==undefined && req.body["file"] && req.body["id"]) {
 
       setImmediate(() => {
 
