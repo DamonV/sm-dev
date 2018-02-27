@@ -1,3 +1,7 @@
+/*
+    Обработчик API запросов
+*/
+
 var express = require('express');
 var router = express.Router();
 const Speech = require('@google-cloud/speech');
@@ -6,6 +10,8 @@ var sm      = require('../sm');
 var wav = require('../wavmaker');
 var fs = require('fs');
 
+
+// функция добавления в БД
 var dbInsert = function(record) {
   var connection = mysql.createConnection({
     host: sm.settings.host,
@@ -23,6 +29,24 @@ var dbInsert = function(record) {
   return query.sql;
 }
 
+var dbButtonInsert = function(record) {
+    var connection = mysql.createConnection({
+        host: sm.settings.host,
+        port: sm.settings.port,
+        user: sm.settings.user_button,
+        password: sm.settings.password_button,
+        database: sm.settings.database_button
+    });
+
+    connection.connect();
+    var query = connection.query('INSERT INTO button_events SET ?', record, function (error, results, fields) {
+        if (error) console.log(error);
+    });
+    connection.end();
+    return query.sql;
+}
+
+// функция преобразования буфера звуковых данных в WAV-файл и запись его на диск
 var wavCreate = function(buffer, sampleRate, bytes, filename) {
     const path = sm.settings.localPathWav+filename;
 
@@ -40,18 +64,29 @@ var wavCreate = function(buffer, sampleRate, bytes, filename) {
     });
 }
 
+// обработчик подпути '/'
+/*
+    для приема звуковых данных, преобразованных в HEX-строку, с глубиной дискретизации 8 бит,
+    с частотой дискретизации 8000 Гц, в беззнаковом формате;
+ */
 router.post('/', function(req, res, next) {
   var date1=new Date();
 
   if (req.body["file"]!==undefined && req.body["id"]!==undefined && req.body["file"] && req.body["id"]) {
+
+    // подготовка структур данных для вызова запроса Google Speech API
+
+    // учетные данные для авторизации в Google Speech
     const speechClient = Speech({
       keyFilename: sm.settings.keyFilename
     });
 
+    //звуковые данные
     const audio = {
       content: Buffer.from(hex8to16bin(req.body["file"]))
     };
 
+    //конфигурация запроса
     const config = {
       encoding: Speech.v1.types.RecognitionConfig.AudioEncoding.LINEAR16,
       sampleRateHertz: 8000,
@@ -63,9 +98,12 @@ router.post('/', function(req, res, next) {
       audio: audio
     };
 
+    //запрос в Google Speech API на синхронное распознавание
     speechClient.recognize(request)
       .then(
         (results) => {
+
+          // обработка результата распознавания
           var recPeriod=(new Date()-date1);
           var transcription;
           try{
@@ -83,9 +121,12 @@ router.post('/', function(req, res, next) {
           try{
             order.confidence=results[0].results[0].alternatives[0].confidence;
           }catch(e){};
+
+          //запись результата распознавания в БД MySQL
           var querySql=dbInsert(order);
           console.log(curDateStr()+" | recognize "+recPeriod+" ms | overall "+(new Date()-date1)+" ms | "+querySql);
 
+          //создание WAV-файла и его запись на диск
           wavCreate(audio.content, config.sampleRateHertz, 2, filename);
 
         },
@@ -103,6 +144,11 @@ router.post('/', function(req, res, next) {
   }
 });
 
+// обработчик подпути '/16bit'
+/*
+    для приема звуковых данных, преобразованных в HEX-строку, с глубиной дискретизации 16 бит,
+    с частотой дискретизации 8000 Гц, в формате со знаком, порядок байтов от младшего к старшему (little-endian)
+*/
 router.post('/16bit', function(req, res, next) {
   var date1=new Date();
 
@@ -140,6 +186,7 @@ router.post('/16bit', function(req, res, next) {
                 transcription='?';
             };
             const filename = 'w'+req.body["id"]+(new Date()).getTime()+'.wav';
+
             var order  = {
               uid_device: req.body["id"],
               message: transcription,
@@ -156,7 +203,6 @@ router.post('/16bit', function(req, res, next) {
           },
           (error ) => {
             console.log(error);
-            //console.log("2- "+(new Date()-date1)+" ms");
           });
       });
       res.send('OK');
@@ -167,6 +213,31 @@ router.post('/16bit', function(req, res, next) {
     err.message = 'Request is incorrect';
     next(err);
   }
+});
+
+/*
+    Обработчик для быстрой кнопки!
+ */
+
+router.get('/button', function(req, res, next) {
+
+    if (req.query["key"]!==undefined && req.query["id"]!==undefined && req.query["key"] && req.query["id"]) {
+
+        var record  = {
+            uid_device: req.query["id"],
+            key: req.query["key"]
+        };
+        if (req.query["bat"]!==undefined) record.battery=req.query["bat"];
+        var querySql=dbButtonInsert(record);
+
+        res.send('OK');
+    }
+    else {
+        var err = new Error();
+        err.status = 500;
+        err.message = 'Request is incorrect';
+        next(err);
+    }
 });
 
 
@@ -184,6 +255,7 @@ var curDateStr = function(){
   return date.toLocaleString("ru", options);
 }
 
+//функция преобразования HEX-строки в бинарные данные
 var hex8to16bin = function(hexStr){
   var bytes = [];
   if (typeof hexStr != "string") return bytes;
