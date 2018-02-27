@@ -228,6 +228,9 @@ router.get('/button', function(req, res, next) {
             key: req.query["key"]
         };
         if (req.query["bat"]!==undefined) record.battery=req.query["bat"];
+        if (req.query["batv"]!==undefined) record.battery_voltage=req.query["batv"];
+        if (req.query["freemem"]!==undefined) record.freemem=req.query["freemem"];
+        if (req.query["rssi"]!==undefined) record.rssi=req.query["rssi"];
         var querySql=dbButtonInsert(record);
 
         res.send('OK');
